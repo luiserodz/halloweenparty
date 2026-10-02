@@ -165,7 +165,7 @@
   const toggleVoting = () => write("state/open", !isOpen(data));
   $("gear").onclick = () => ($("panel").hidden = !$("panel").hidden);
   $("toggle").onclick = toggleVoting;
-  $("reset").onclick = () => { if (confirm("¿Borrar todos los votos? No se puede deshacer.")) write("", null); };
+  $("reset").onclick = () => { if (confirm("¿Borrar todos los votos? No se puede deshacer.")) write("votes", null); };
   addEventListener("keydown", (e) => {
     if (e.key === "v" || e.key === "V") toggleVoting();
     if (e.key === "f" || e.key === "F") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
