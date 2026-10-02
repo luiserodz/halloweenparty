@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0710">
+<title>Votar · Concurso de Disfraces</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Creepster&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0b0710; --panel:#170e1f; --line:#34224a; --orange:#ff7a1a; --purple:#a26bff; --green:#8dff6a; --text:#f6efff; --muted:#a898b8; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: radial-gradient(ellipse at 50% 0%, #2c1340 0%, var(--bg) 70%) fixed; color: var(--text);
+         font-family: Inter, system-ui, sans-serif; min-height: 100vh; padding: 24px 16px 40px; }
+  .wrap { max-width: 480px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 20px; }
+  header .pumpkin { font-size: 44px; }
+  h1 { font-family: Creepster, cursive; font-weight: 400; font-size: 42px; color: var(--orange); line-height: 1; }
+  header p { color: var(--muted); margin-top: 8px; font-size: 15px; }
+  .banner { background: rgba(255,122,26,.15); color: var(--orange); border-radius: 12px; padding: 14px; text-align: center; font-weight: 700; margin-bottom: 16px; }
+  .cat { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .cat.grand { border-color: rgba(255,122,26,.55); }
+  .cat label { display: block; font-weight: 800; font-size: 17px; margin-bottom: 8px; }
+  .cat input { width: 100%; font: 500 17px Inter, sans-serif; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line);
+               background: #0f0915; color: var(--text); outline: none; }
+  .cat input:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(162,107,255,.25); }
+  .cat input:disabled { opacity: .5; }
+  button.submit { width: 100%; margin-top: 6px; font: 800 18px Inter, sans-serif; padding: 16px; border: 0; border-radius: 14px;
+                  background: var(--orange); color: #1a0d00; cursor: pointer; }
+  button.submit:disabled { opacity: .45; }
+  .note { text-align: center; color: var(--muted); font-size: 14px; margin-top: 14px; min-height: 20px; }
+  .note.ok { color: var(--green); font-weight: 700; }
+  .demo { margin-top: 24px; background: #3a2a00; color: #ffd27a; padding: 10px; border-radius: 10px; font-size: 13px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="pumpkin">🎃</div>
+    <h1 id="title">Concurso de Disfraces</h1>
+    <p>Escribe el nombre de la persona por la que votas. Puedes saltarte cualquier categoría.</p>
+  </header>
+  <div class="banner" id="closed" hidden>La votación está cerrada. ¡Mira la tele! 📺</div>
+  <form id="ballot" autocomplete="off"></form>
+  <datalist id="names"></datalist>
+  <p class="demo" id="demo" hidden>Modo demo: los votos solo se guardan en este navegador.</p>
+</div>
+
+<script type="module">
+  import { CATEGORIES, TITLE } from "./config.js";
+  import { onData, write, voterId, isOpen, knownNames, DEMO } from "./store.js";
+
+  const $ = (id) => document.getElementById(id);
+  const me = voterId();
+  const form = $("ballot");
+  $("title").textContent = TITLE;
+  $("demo").hidden = !DEMO;
+
+  form.innerHTML = CATEGORIES.map((c, i) => `
+    <div class="cat${i === CATEGORIES.length - 1 ? " grand" : ""}">
+      <label for="c-${c.id}">${c.emoji} ${c.name}</label>
+      <input id="c-${c.id}" name="${c.id}" list="names" placeholder="Su nombre" maxlength="40" autocapitalize="words">
+    </div>`).join("") + `
+    <button class="submit" type="submit">Enviar mis votos</button>
+    <p class="note" id="note"></p>`;
+
+  const inputs = [...form.querySelectorAll("input")];
+  const btn = form.querySelector("button");
+  let prefilled = false, open = true;
+
+  onData((data) => {
+    // Fill in this phone's previous votes once, so people can change them.
+    if (!prefilled) {
+      const mine = data.votes?.[me] || {};
+      inputs.forEach((i) => (i.value = mine[i.name] || ""));
+      if (Object.keys(mine).length) note("Tus votos ya están registrados. Puedes cambiarlos hasta que se cierre la votación.", true);
+      prefilled = true;
+    }
+    // Suggest names other people already typed, so spellings match up.
+    $("names").innerHTML = knownNames(data).map((n) => `<option value="${n.replace(/"/g, "&quot;")}">`).join("");
+    open = isOpen(data);
+    $("closed").hidden = open;
+    inputs.forEach((i) => (i.disabled = !open));
+    btn.disabled = !open;
+  });
+
+  function note(text, ok = false) { $("note").textContent = text; $("note").className = "note" + (ok ? " ok" : ""); }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!open) return;
+    const ballot = {};
+    for (const i of inputs) { const v = i.value.trim().replace(/\s+/g, " "); if (v) ballot[i.name] = v; }
+    if (!Object.keys(ballot).length) return note("Escribe al menos un nombre.");
+    btn.disabled = true;
+    try {
+      await write(`votes/${me}`, ballot);
+      note("🎉 ¡Votos enviados! Puedes cambiarlos hasta que se cierre la votación.", true);
+    } catch (err) {
+      note("No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.");
+    } finally { btn.disabled = !open; }
+  });
+</script>
+</body>
+</html>
