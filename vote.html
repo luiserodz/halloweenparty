@@ -38,7 +38,7 @@
   <header>
     <div class="pumpkin">🎃</div>
     <h1 id="title">Concurso de Disfraces</h1>
-    <p>Escribe el nombre de la persona por la que votas. Puedes saltarte cualquier categoría.</p>
+    <p>Escribe el nombre de la persona por la que votas. Puedes saltarte cualquier categoría. <b>Solo se puede votar una vez.</b></p>
   </header>
   <div class="banner" id="closed" hidden>La votación está cerrada. ¡Mira la tele! 📺</div>
   <form id="ballot" autocomplete="off"></form>
@@ -66,39 +66,45 @@
 
   const inputs = [...form.querySelectorAll("input")];
   const btn = form.querySelector("button");
-  let prefilled = false, open = true;
+  let open = true, voted = false;
 
   onData((data) => {
-    // Fill in this phone's previous votes once, so people can change them.
-    if (!prefilled) {
-      const mine = data.votes?.[me] || {};
-      inputs.forEach((i) => (i.value = mine[i.name] || ""));
-      if (Object.keys(mine).length) note("Tus votos ya están registrados. Puedes cambiarlos hasta que se cierre la votación.", true);
-      prefilled = true;
+    // One ballot per phone: once it's in the database, show it read-only.
+    const mine = data.votes?.[me];
+    if (mine) {
+      inputs.forEach((i) => (i.value = mine[i.name] || "—"));
+      note("✅ Ya votaste. ¡Gracias! Mira los resultados en la tele.", true);
+    } else if (voted) {
+      // The host reset the votes: give this phone a fresh ballot.
+      inputs.forEach((i) => (i.value = ""));
+      note("");
     }
+    voted = !!mine;
     // Suggest names other people already typed, so spellings match up.
     $("names").innerHTML = knownNames(data).map((n) => `<option value="${n.replace(/"/g, "&quot;")}">`).join("");
     open = isOpen(data);
     $("closed").hidden = open;
-    inputs.forEach((i) => (i.disabled = !open));
+    inputs.forEach((i) => (i.disabled = !open || voted));
     btn.disabled = !open;
+    btn.hidden = voted;
   });
 
   function note(text, ok = false) { $("note").textContent = text; $("note").className = "note" + (ok ? " ok" : ""); }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (!open) return;
+    if (!open || voted) return;
     const ballot = {};
     for (const i of inputs) { const v = i.value.trim().replace(/\s+/g, " "); if (v) ballot[i.name] = v; }
     if (!Object.keys(ballot).length) return note("Escribe al menos un nombre.");
+    if (!confirm("¿Enviar tus votos? Después no podrás cambiarlos.")) return;
     btn.disabled = true;
     try {
       await write(`votes/${me}`, ballot);
-      note("🎉 ¡Votos enviados! Puedes cambiarlos hasta que se cierre la votación.", true);
     } catch (err) {
       note("No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.");
-    } finally { btn.disabled = !open; }
+      btn.disabled = false;
+    }
   });
 </script>
 </body>
