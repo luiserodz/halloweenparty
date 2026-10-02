@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concurso de Disfraces</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Creepster&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root { --bg:#0b0710; --panel:#170e1f; --line:#2e1d3b; --orange:#ff7a1a; --purple:#a26bff; --green:#8dff6a; --text:#f6efff; --muted:#a898b8; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body { background: radial-gradient(ellipse at 30% 0%, #2c1340 0%, var(--bg) 65%); color: var(--text);
+         font-family: Inter, system-ui, sans-serif; overflow: hidden; }
+  main { height: 100vh; display: grid; grid-template-columns: 30vw 1fr; gap: 2.5vw; padding: 3vh 2.5vw; }
+
+  /* Left: join panel */
+  .join { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 2vh; }
+  .title { font-family: Creepster, cursive; font-weight: 400; font-size: 5vw; line-height: .95; color: var(--orange);
+           text-shadow: 0 0 2vw rgba(255,122,26,.45); animation: flicker 6s infinite; }
+  .qr-wrap { background: #fff; padding: 1.2vw; border-radius: 1.2vw; width: 24vw; box-shadow: 0 0 4vw rgba(162,107,255,.35); }
+  #qr img, #qr canvas { width: 100% !important; height: auto !important; display: block; }
+  .scan { font-size: 2vw; font-weight: 800; }
+  .scan b { color: var(--green); }
+  .url { font-size: 1vw; color: var(--muted); word-break: break-all; }
+  .status { font-size: 1.2vw; font-weight: 800; letter-spacing: .1em; padding: .5vw 1.2vw; border-radius: 99px; }
+  .status.open { background: rgba(141,255,106,.12); color: var(--green); }
+  .status.closed { background: rgba(255,122,26,.15); color: var(--orange); }
+  .voters { font-size: 1.3vw; color: var(--muted); }
+  .voters b { color: var(--text); font-size: 1.8vw; }
+
+  /* Right: live boards */
+  .boards { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1.25fr 1fr 1fr; gap: 1.6vw; min-height: 0; }
+  .board { background: var(--panel); border: 1px solid var(--line); border-radius: 1.2vw; padding: 1.4vw 1.6vw;
+           display: flex; flex-direction: column; min-height: 0; transition: box-shadow .4s, border-color .4s; }
+  .board.grand { grid-column: 1 / -1; border-color: rgba(255,122,26,.5); background: linear-gradient(135deg, #24122c, #170e1f); }
+  .board.pulse { border-color: var(--green); box-shadow: 0 0 2vw rgba(141,255,106,.35); }
+  .board h2 { font-size: 1.6vw; font-weight: 800; display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1vh; }
+  .board.grand h2 { font-family: Creepster, cursive; font-weight: 400; font-size: 2.8vw; color: var(--orange); letter-spacing: .03em; }
+  .board h2 small { font-family: Inter, sans-serif; font-size: 1vw; color: var(--muted); font-weight: 600; letter-spacing: 0; }
+  .rows { display: flex; flex-direction: column; gap: .8vh; flex: 1; justify-content: center; min-height: 0; }
+  .row { position: relative; display: flex; justify-content: space-between; align-items: center; padding: .7vh 1vw;
+         border-radius: .6vw; overflow: hidden; font-size: 1.35vw; font-weight: 600; }
+  .grand .row { font-size: 1.7vw; }
+  .row .bar { position: absolute; inset: 0 auto 0 0; background: rgba(162,107,255,.22); border-radius: .6vw;
+              transition: width .8s cubic-bezier(.2,.8,.2,1); z-index: 0; }
+  .row:first-child .bar { background: rgba(255,122,26,.32); }
+  .row span { position: relative; z-index: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .n { font-weight: 800; margin-left: 1vw; }
+  .row:first-child .who::before { content: "👑 "; }
+  .empty { color: var(--muted); font-size: 1.2vw; text-align: center; }
+
+  @keyframes flicker { 0%,92%,100% { opacity: 1 } 93% { opacity: .4 } 95% { opacity: 1 } 96% { opacity: .6 } }
+
+  /* Drifting bats */
+  .bat { position: fixed; font-size: 2.5vw; opacity: .25; pointer-events: none; animation: fly linear infinite; z-index: -1; }
+  @keyframes fly { from { transform: translate(-10vw, 0) } 50% { transform: translate(50vw, -6vh) } to { transform: translate(110vw, 4vh) } }
+
+  /* Host controls */
+  #gear { position: fixed; right: 1vw; bottom: 1vw; background: none; border: 0; color: var(--text); font-size: 1.6vw; opacity: .15; cursor: pointer; }
+  #gear:hover { opacity: .8; }
+  #panel { position: fixed; right: 1vw; bottom: 4.5vw; background: #1f1429; border: 1px solid var(--line); border-radius: 12px;
+           padding: 16px; display: grid; gap: 10px; width: 260px; font-size: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+  #panel[hidden] { display: none; }
+  #panel button { font: 600 14px Inter, sans-serif; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: #2a1c36; color: var(--text); cursor: pointer; }
+  #panel button.danger { color: #ff8a8a; }
+  #panel p { color: var(--muted); font-size: 12px; }
+  .demo { position: fixed; left: 50%; bottom: 1vh; transform: translateX(-50%); background: #3a2a00; color: #ffd27a;
+          padding: 6px 14px; border-radius: 99px; font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <section class="join">
+    <h1 class="title" id="title">Concurso de<br>Disfraces</h1>
+    <div class="qr-wrap"><div id="qr"></div></div>
+    <p class="scan">¡Escanea para <b>votar!</b></p>
+    <p class="url" id="url"></p>
+    <div class="status" id="status"></div>
+    <p class="voters" id="voters"></p>
+  </section>
+  <section class="boards" id="boards"></section>
+</main>
+
+<button id="gear" title="Controles del anfitrión">⚙︎</button>
+<div id="panel" hidden>
+  <button id="toggle"></button>
+  <button id="reset" class="danger">Borrar todos los votos</button>
+  <p>Teclado: <b>V</b> abrir/cerrar votación · <b>F</b> pantalla completa</p>
+</div>
+<div class="demo" id="demo" hidden>Modo demo: los votos solo se sincronizan entre pestañas de este navegador. Añade Firebase en config.js para usarlo en vivo.</div>
+
+<script type="module">
+  import { CATEGORIES, TITLE } from "./config.js";
+  import { onData, write, tally, isOpen, DEMO } from "./store.js";
+
+  const $ = (id) => document.getElementById(id);
+  const TOP = { grand: 5, other: 4 };
+  let data = {};
+
+  // QR code pointing at the phone page next to this one.
+  const voteUrl = new URL("vote.html", location.href).href;
+  new QRCode($("qr"), { text: voteUrl, width: 512, height: 512, correctLevel: QRCode.CorrectLevel.M });
+  $("url").textContent = voteUrl.replace(/^https?:\/\//, "");
+  if (TITLE !== "Concurso de Disfraces") $("title").textContent = TITLE;
+  $("demo").hidden = !DEMO;
+
+  // Build one board per category; the last one is the grand prize.
+  const boards = CATEGORIES.map((cat, i) => {
+    const grand = i === CATEGORIES.length - 1;
+    const el = document.createElement("div");
+    el.className = "board" + (grand ? " grand" : "");
+    el.innerHTML = `<h2><span>${cat.emoji} ${cat.name}</span><small></small></h2><div class="rows"></div>`;
+    return { el, grand, rows: el.querySelector(".rows"), count: el.querySelector("small"), rowEls: new Map(), lastTotal: null };
+  });
+  // Grand prize on top spanning both columns.
+  [boards.at(-1), ...boards.slice(0, -1)].forEach((b) => $("boards").append(b.el));
+
+  function renderBoard(board, { ranked, total }) {
+    board.count.textContent = total === 1 ? "1 voto" : `${total} votos`;
+    if (board.lastTotal !== null && total > board.lastTotal) {
+      board.el.classList.add("pulse");
+      setTimeout(() => board.el.classList.remove("pulse"), 900);
+    }
+    board.lastTotal = total;
+
+    const top = ranked.slice(0, board.grand ? TOP.grand : TOP.other);
+    if (!top.length) { board.rows.innerHTML = `<p class="empty">Aún no hay votos 👻</p>`; board.rowEls.clear(); return; }
+    board.rows.querySelector(".empty")?.remove();
+
+    const max = top[0].votes;
+    const keep = new Set();
+    for (const r of top) {
+      const key = r.name.toLowerCase();
+      keep.add(key);
+      let row = board.rowEls.get(key);
+      if (!row) {
+        row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML = `<div class="bar" style="width:0"></div><span class="who"></span><span class="n"></span>`;
+        board.rowEls.set(key, row);
+      }
+      row.querySelector(".who").textContent = r.name;
+      row.querySelector(".n").textContent = r.votes;
+      board.rows.append(row); // re-appending keeps rows in rank order
+      requestAnimationFrame(() => (row.querySelector(".bar").style.width = `${(r.votes / max) * 100}%`));
+    }
+    for (const [key, row] of board.rowEls) if (!keep.has(key)) { row.remove(); board.rowEls.delete(key); }
+  }
+
+  function render() {
+    tally(data).forEach((t, i) => renderBoard(boards[i], t));
+    const open = isOpen(data);
+    $("status").textContent = open ? "● VOTACIÓN ABIERTA" : "VOTACIÓN CERRADA";
+    $("status").className = "status " + (open ? "open" : "closed");
+    $("toggle").textContent = open ? "Cerrar votación" : "Abrir votación";
+    const n = Object.keys(data.votes || {}).length;
+    $("voters").innerHTML = n === 1 ? "<b>1</b> persona ha votado" : `<b>${n}</b> personas han votado`;
+  }
+
+  onData((d) => { data = d; render(); });
+
+  // Host controls
+  const toggleVoting = () => write("state/open", !isOpen(data));
+  $("gear").onclick = () => ($("panel").hidden = !$("panel").hidden);
+  $("toggle").onclick = toggleVoting;
+  $("reset").onclick = () => { if (confirm("¿Borrar todos los votos? No se puede deshacer.")) write("", null); };
+  addEventListener("keydown", (e) => {
+    if (e.key === "v" || e.key === "V") toggleVoting();
+    if (e.key === "f" || e.key === "F") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+  });
+
+  // A few bats for atmosphere.
+  for (let i = 0; i < 5; i++) {
+    const b = document.createElement("div");
+    b.className = "bat"; b.textContent = "🦇";
+    b.style.top = `${10 + Math.random() * 75}vh`;
+    b.style.animationDuration = `${25 + Math.random() * 25}s`;
+    b.style.animationDelay = `${-Math.random() * 40}s`;
+    document.body.append(b);
+  }
+</script>
+</body>
+</html>
