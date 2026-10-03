@@ -195,7 +195,7 @@
     $("closeBtn").disabled = !open;
 
     // Results stay secret while voting is open; they appear once it's closed.
-    const show = !open && n > 0;
+    const show = !open;
     if (show !== showing) {
       showing = show;
       $("lobby").hidden = show;
