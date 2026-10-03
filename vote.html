@@ -25,6 +25,11 @@
                background: #0f0915; color: var(--text); outline: none; }
   .cat input:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(162,107,255,.25); }
   .cat input:disabled { opacity: .5; }
+  .suggest { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .suggest[hidden] { display: none; }
+  .suggest button { font: 600 15px Inter, sans-serif; padding: 9px 14px; border-radius: 99px; border: 1px solid var(--purple);
+                    background: rgba(162,107,255,.15); color: var(--text); cursor: pointer; }
+  .suggest small { width: 100%; color: var(--muted); font-size: 12px; }
   button.submit { width: 100%; margin-top: 6px; font: 800 18px Inter, sans-serif; padding: 16px; border: 0; border-radius: 14px;
                   background: var(--orange); color: #1a0d00; cursor: pointer; }
   button.submit:disabled { opacity: .45; }
@@ -42,13 +47,12 @@
   </header>
   <div class="banner" id="closed" hidden>La votación está cerrada. ¡Mira la tele! 📺</div>
   <form id="ballot" autocomplete="off"></form>
-  <datalist id="names"></datalist>
   <p class="demo" id="demo" hidden>Modo demo: los votos solo se guardan en este navegador.</p>
 </div>
 
 <script type="module">
   import { CATEGORIES, TITLE } from "./config.js";
-  import { onData, write, voterId, isOpen, knownNames, DEMO } from "./store.js";
+  import { onData, write, voterId, isOpen, knownNames, normalize, DEMO } from "./store.js";
 
   const $ = (id) => document.getElementById(id);
   const me = voterId();
@@ -59,14 +63,15 @@
   form.innerHTML = CATEGORIES.map((c, i) => `
     <div class="cat${i === CATEGORIES.length - 1 ? " grand" : ""}">
       <label for="c-${c.id}">${c.emoji} ${c.name}</label>
-      <input id="c-${c.id}" name="${c.id}" list="names" placeholder="Su nombre" maxlength="40" autocapitalize="words">
+      <input id="c-${c.id}" name="${c.id}" placeholder="Su nombre" maxlength="40" autocapitalize="words" autocomplete="off">
+      <div class="suggest" hidden></div>
     </div>`).join("") + `
     <button class="submit" type="submit">Enviar mis votos</button>
     <p class="note" id="note"></p>`;
 
   const inputs = [...form.querySelectorAll("input")];
   const btn = form.querySelector("button");
-  let open = true, voted = false;
+  let open = true, voted = false, names = [];
 
   onData((data) => {
     // One ballot per phone: once it's in the database, show it read-only.
@@ -80,14 +85,36 @@
       note("");
     }
     voted = !!mine;
-    // Suggest names other people already typed, so spellings match up.
-    $("names").innerHTML = knownNames(data).map((n) => `<option value="${n.replace(/"/g, "&quot;")}">`).join("");
+    // Names other people already typed, suggested so spellings match up.
+    names = knownNames(data);
+    if (inputs.includes(document.activeElement)) suggest(document.activeElement);
     open = isOpen(data);
     $("closed").hidden = open;
     inputs.forEach((i) => (i.disabled = !open || voted));
     btn.disabled = !open;
     btn.hidden = voted;
   });
+
+  // Tappable suggestions under the field being typed in (works the same on every phone).
+  function suggest(input) {
+    const box = input.nextElementSibling;
+    const q = normalize(input.value);
+    const matches = names.filter((n) => normalize(n) !== q && normalize(n).includes(q)).slice(0, 8);
+    box.hidden = !matches.length || input.disabled;
+    box.innerHTML = matches.length ? `<small>${q ? "¿Te refieres a…?" : "Nombres que otros ya escribieron:"}</small>` : "";
+    for (const n of matches) {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = n;
+      b.onpointerdown = (e) => e.preventDefault(); // keep focus so the list doesn't vanish first
+      b.onclick = () => { input.value = n; box.hidden = true; };
+      box.append(b);
+    }
+  }
+  for (const i of inputs) {
+    i.addEventListener("input", () => suggest(i));
+    i.addEventListener("focus", () => { suggest(i); setTimeout(() => i.scrollIntoView({ block: "center", behavior: "smooth" }), 300); });
+    i.addEventListener("blur", () => setTimeout(() => (i.nextElementSibling.hidden = true), 150));
+  }
 
   function note(text, ok = false) { $("note").textContent = text; $("note").className = "note" + (ok ? " ok" : ""); }
 
