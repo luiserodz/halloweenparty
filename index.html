@@ -10,32 +10,58 @@
 <style>
   :root { --bg:#0b0710; --panel:#170e1f; --line:#2e1d3b; --orange:#ff7a1a; --purple:#a26bff; --green:#8dff6a; --text:#f6efff; --muted:#a898b8; }
   * { box-sizing: border-box; margin: 0; }
+  [hidden] { display: none !important; }
   html, body { height: 100%; }
   body { background: radial-gradient(ellipse at 30% 0%, #2c1340 0%, var(--bg) 65%); color: var(--text);
          font-family: Inter, system-ui, sans-serif; overflow: hidden; }
-  main { height: 100vh; display: grid; grid-template-columns: 30vw 1fr; gap: 2.5vw; padding: 3vh 2.5vw; }
 
-  /* Left: join panel */
+  /* ---------- Lobby: QR on the left, open/close buttons on the right ---------- */
+  #lobby { height: 100vh; display: grid; grid-template-columns: 1fr 1fr; gap: 4vw; padding: 3vh 5vw; align-items: center; }
   .join { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 2vh; }
   .title { font-family: Creepster, cursive; font-weight: 400; font-size: 5vw; line-height: .95; color: var(--orange);
            text-shadow: 0 0 2vw rgba(255,122,26,.45); animation: flicker 6s infinite; }
-  .qr-wrap { background: #fff; padding: 1.2vw; border-radius: 1.2vw; width: 24vw; box-shadow: 0 0 4vw rgba(162,107,255,.35); }
+  .qr-wrap { background: #fff; padding: 1.2vw; border-radius: 1.2vw; width: min(28vw, 52vh); box-shadow: 0 0 4vw rgba(162,107,255,.35); }
   #qr img, #qr canvas { width: 100% !important; height: auto !important; display: block; }
-  .scan { font-size: 2vw; font-weight: 800; }
+  .scan { font-size: 2.2vw; font-weight: 800; }
   .scan b { color: var(--green); }
   .url { font-size: 1vw; color: var(--muted); word-break: break-all; }
-  .status { font-size: 1.2vw; font-weight: 800; letter-spacing: .1em; padding: .5vw 1.2vw; border-radius: 99px; }
+  .status { font-size: 1.3vw; font-weight: 800; letter-spacing: .1em; padding: .5vw 1.4vw; border-radius: 99px; }
   .status.open { background: rgba(141,255,106,.12); color: var(--green); }
   .status.closed { background: rgba(255,122,26,.15); color: var(--orange); }
-  .voters { font-size: 1.3vw; color: var(--muted); }
-  .voters b { color: var(--text); font-size: 1.8vw; }
+  .voters { font-size: 1.5vw; color: var(--muted); }
+  .voters b { color: var(--text); font-size: 2.2vw; }
 
-  /* Right: live boards */
-  .boards { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1.25fr 1fr 1fr; gap: 1.6vw; min-height: 0; }
+  .controls { display: flex; flex-direction: column; align-items: center; gap: 3vh; }
+  .secret { font-size: 1.6vw; color: var(--muted); text-align: center; line-height: 1.4; margin-bottom: 2vh; }
+  .secret b { color: var(--text); }
+  .big { width: 100%; max-width: 34vw; font: 800 2.6vw Inter, sans-serif; padding: 3.5vh 2vw; border-radius: 1.5vw;
+         cursor: pointer; transition: transform .15s, box-shadow .3s, opacity .3s; background: transparent; }
+  .big:hover:not(:disabled) { transform: scale(1.03); }
+  .big.open  { color: var(--green);  border: .25vw solid var(--green); }
+  .big.close { color: var(--orange); border: .25vw solid var(--orange); }
+  /* The button for the current state is filled in with a check mark. */
+  .big.open.active  { background: var(--green);  color: #0b1a05; box-shadow: 0 0 3vw rgba(141,255,106,.45); }
+  .big.close.active { background: var(--orange); color: #1a0d00; box-shadow: 0 0 3vw rgba(255,122,26,.45); }
+  .big.active::before { content: "✓ "; }
+  .big:disabled { cursor: default; }
+
+  /* ---------- Results: shown only once voting is closed ---------- */
+  #results { height: 100vh; display: flex; flex-direction: column; padding: 3vh 2.5vw; gap: 2vh; }
+  .results-head { display: flex; justify-content: space-between; align-items: center; }
+  .results-head h1 { font-family: Creepster, cursive; font-weight: 400; font-size: 4vw; color: var(--orange);
+                     text-shadow: 0 0 2vw rgba(255,122,26,.45); }
+  .results-head .side { display: flex; align-items: center; gap: 1.5vw; font-size: 1.3vw; color: var(--muted); }
+  .results-head .side b { color: var(--text); }
+  #reopen { font: 700 1.1vw Inter, sans-serif; padding: .7vw 1.4vw; border-radius: 99px; background: transparent;
+            color: var(--green); border: 2px solid var(--green); cursor: pointer; opacity: .6; }
+  #reopen:hover { opacity: 1; }
+
+  .boards { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1.25fr 1fr 1fr; gap: 1.6vw; min-height: 0; }
   .board { background: var(--panel); border: 1px solid var(--line); border-radius: 1.2vw; padding: 1.4vw 1.6vw;
-           display: flex; flex-direction: column; min-height: 0; transition: box-shadow .4s, border-color .4s; }
+           display: flex; flex-direction: column; min-height: 0; animation: rise .7s both; }
   .board.grand { grid-column: 1 / -1; border-color: rgba(255,122,26,.5); background: linear-gradient(135deg, #24122c, #170e1f); }
-  .board.pulse { border-color: var(--green); box-shadow: 0 0 2vw rgba(141,255,106,.35); }
+  .board:nth-child(2) { animation-delay: .15s } .board:nth-child(3) { animation-delay: .3s }
+  .board:nth-child(4) { animation-delay: .45s } .board:nth-child(5) { animation-delay: .6s }
   .board h2 { font-size: 1.6vw; font-weight: 800; display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1vh; }
   .board.grand h2 { font-family: Creepster, cursive; font-weight: 400; font-size: 2.8vw; color: var(--orange); letter-spacing: .03em; }
   .board h2 small { font-family: Inter, sans-serif; font-size: 1vw; color: var(--muted); font-weight: 600; letter-spacing: 0; }
@@ -44,34 +70,33 @@
          border-radius: .6vw; overflow: hidden; font-size: 1.35vw; font-weight: 600; }
   .grand .row { font-size: 1.7vw; }
   .row .bar { position: absolute; inset: 0 auto 0 0; background: rgba(162,107,255,.22); border-radius: .6vw;
-              transition: width .8s cubic-bezier(.2,.8,.2,1); z-index: 0; }
+              transition: width 1.4s cubic-bezier(.2,.8,.2,1); z-index: 0; }
   .row:first-child .bar { background: rgba(255,122,26,.32); }
   .row span { position: relative; z-index: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .row .n { font-weight: 800; margin-left: 1vw; }
   .row:first-child .who::before { content: "👑 "; }
   .empty { color: var(--muted); font-size: 1.2vw; text-align: center; }
 
+  @keyframes rise { from { opacity: 0; transform: translateY(3vh) scale(.97) } to { opacity: 1; transform: none } }
   @keyframes flicker { 0%,92%,100% { opacity: 1 } 93% { opacity: .4 } 95% { opacity: 1 } 96% { opacity: .6 } }
 
   /* Drifting bats */
   .bat { position: fixed; font-size: 2.5vw; opacity: .25; pointer-events: none; animation: fly linear infinite; z-index: -1; }
   @keyframes fly { from { transform: translate(-10vw, 0) } 50% { transform: translate(50vw, -6vh) } to { transform: translate(110vw, 4vh) } }
 
-  /* Host controls */
+  /* Hidden extras (reset) */
   #gear { position: fixed; right: 1vw; bottom: 1vw; background: none; border: 0; color: var(--text); font-size: 1.6vw; opacity: .15; cursor: pointer; }
   #gear:hover { opacity: .8; }
   #panel { position: fixed; right: 1vw; bottom: 4.5vw; background: #1f1429; border: 1px solid var(--line); border-radius: 12px;
            padding: 16px; display: grid; gap: 10px; width: 260px; font-size: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
-  #panel[hidden] { display: none; }
-  #panel button { font: 600 14px Inter, sans-serif; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: #2a1c36; color: var(--text); cursor: pointer; }
-  #panel button.danger { color: #ff8a8a; }
+  #panel button { font: 600 14px Inter, sans-serif; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: #2a1c36; color: #ff8a8a; cursor: pointer; }
   #panel p { color: var(--muted); font-size: 12px; }
   .demo { position: fixed; left: 50%; bottom: 1vh; transform: translateX(-50%); background: #3a2a00; color: #ffd27a;
           padding: 6px 14px; border-radius: 99px; font-size: 13px; }
 </style>
 </head>
 <body>
-<main>
+<main id="lobby">
   <section class="join">
     <h1 class="title" id="title">Concurso de<br>Disfraces</h1>
     <div class="qr-wrap"><div id="qr"></div></div>
@@ -80,13 +105,24 @@
     <div class="status" id="status"></div>
     <p class="voters" id="voters"></p>
   </section>
-  <section class="boards" id="boards"></section>
+  <section class="controls">
+    <p class="secret">🤫 Los resultados son <b>secretos</b><br>hasta que se cierre la votación</p>
+    <button id="openBtn" class="big open">Abrir votación</button>
+    <button id="closeBtn" class="big close">Cerrar votación</button>
+  </section>
 </main>
 
-<button id="gear" title="Controles del anfitrión">⚙︎</button>
+<section id="results" hidden>
+  <header class="results-head">
+    <h1>🏆 Resultados</h1>
+    <div class="side"><span id="finalCount"></span><button id="reopen">Abrir votación</button></div>
+  </header>
+  <div class="boards" id="boards"></div>
+</section>
+
+<button id="gear" title="Más opciones">⚙︎</button>
 <div id="panel" hidden>
-  <button id="toggle"></button>
-  <button id="reset" class="danger">Borrar todos los votos</button>
+  <button id="reset">Borrar todos los votos</button>
   <p>Teclado: <b>V</b> abrir/cerrar votación · <b>F</b> pantalla completa</p>
 </div>
 <div class="demo" id="demo" hidden>Modo demo: los votos solo se sincronizan entre pestañas de este navegador. Añade Firebase en config.js para usarlo en vivo.</div>
@@ -98,6 +134,7 @@
   const $ = (id) => document.getElementById(id);
   const TOP = { grand: 5, other: 4 };
   let data = {};
+  let showing = false;
 
   // QR code pointing at the phone page next to this one.
   const voteUrl = new URL("vote.html", location.href).href;
@@ -112,21 +149,15 @@
     const el = document.createElement("div");
     el.className = "board" + (grand ? " grand" : "");
     el.innerHTML = `<h2><span>${cat.emoji} ${cat.name}</span><small></small></h2><div class="rows"></div>`;
-    return { el, grand, rows: el.querySelector(".rows"), count: el.querySelector("small"), rowEls: new Map(), lastTotal: null };
+    return { el, grand, rows: el.querySelector(".rows"), count: el.querySelector("small"), rowEls: new Map() };
   });
   // Grand prize on top spanning both columns.
   [boards.at(-1), ...boards.slice(0, -1)].forEach((b) => $("boards").append(b.el));
 
   function renderBoard(board, { ranked, total }) {
     board.count.textContent = total === 1 ? "1 voto" : `${total} votos`;
-    if (board.lastTotal !== null && total > board.lastTotal) {
-      board.el.classList.add("pulse");
-      setTimeout(() => board.el.classList.remove("pulse"), 900);
-    }
-    board.lastTotal = total;
-
     const top = ranked.slice(0, board.grand ? TOP.grand : TOP.other);
-    if (!top.length) { board.rows.innerHTML = `<p class="empty">Aún no hay votos 👻</p>`; board.rowEls.clear(); return; }
+    if (!top.length) { board.rows.innerHTML = `<p class="empty">Sin votos 👻</p>`; board.rowEls.clear(); return; }
     board.rows.querySelector(".empty")?.remove();
 
     const max = top[0].votes;
@@ -144,30 +175,53 @@
       row.querySelector(".who").textContent = r.name;
       row.querySelector(".n").textContent = r.votes;
       board.rows.append(row); // re-appending keeps rows in rank order
-      requestAnimationFrame(() => (row.querySelector(".bar").style.width = `${(r.votes / max) * 100}%`));
+      const bar = row.querySelector(".bar");
+      setTimeout(() => (bar.style.width = `${(r.votes / max) * 100}%`), 400); // bars grow after the board appears
     }
     for (const [key, row] of board.rowEls) if (!keep.has(key)) { row.remove(); board.rowEls.delete(key); }
   }
 
   function render() {
-    tally(data).forEach((t, i) => renderBoard(boards[i], t));
     const open = isOpen(data);
+    const n = Object.keys(data.votes || {}).length;
+
     $("status").textContent = open ? "● VOTACIÓN ABIERTA" : "VOTACIÓN CERRADA";
     $("status").className = "status " + (open ? "open" : "closed");
-    $("toggle").textContent = open ? "Cerrar votación" : "Abrir votación";
-    const n = Object.keys(data.votes || {}).length;
     $("voters").innerHTML = n === 1 ? "<b>1</b> persona ha votado" : `<b>${n}</b> personas han votado`;
+    $("finalCount").innerHTML = n === 1 ? "<b>1</b> votante" : `<b>${n}</b> votantes`;
+    $("openBtn").classList.toggle("active", open);
+    $("openBtn").disabled = open;
+    $("closeBtn").classList.toggle("active", !open);
+    $("closeBtn").disabled = !open;
+
+    // Results stay secret while voting is open; they appear once it's closed.
+    const show = !open && n > 0;
+    if (show !== showing) {
+      showing = show;
+      $("lobby").hidden = show;
+      $("results").hidden = !show;
+      // Start the boards fresh each time so the reveal animation plays.
+      for (const b of boards) {
+        b.rows.innerHTML = ""; b.rowEls.clear();
+        b.el.style.animation = "none"; b.el.offsetHeight; b.el.style.animation = "";
+      }
+    }
+    if (show) tally(data).forEach((t, i) => renderBoard(boards[i], t));
   }
 
   onData((d) => { data = d; render(); });
 
-  // Host controls
-  const toggleVoting = () => write("state/open", !isOpen(data));
+  // Open / close voting
+  const openVoting = () => write("state/open", true);
+  const closeVoting = () => { if (confirm("¿Cerrar la votación y mostrar los resultados?")) write("state/open", false); };
+  $("openBtn").onclick = openVoting;
+  $("closeBtn").onclick = closeVoting;
+  $("reopen").onclick = openVoting;
+
   $("gear").onclick = () => ($("panel").hidden = !$("panel").hidden);
-  $("toggle").onclick = toggleVoting;
   $("reset").onclick = () => { if (confirm("¿Borrar todos los votos? No se puede deshacer.")) write("votes", null); };
   addEventListener("keydown", (e) => {
-    if (e.key === "v" || e.key === "V") toggleVoting();
+    if (e.key === "v" || e.key === "V") isOpen(data) ? closeVoting() : openVoting();
     if (e.key === "f" || e.key === "F") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
   });
 
